@@ -1,0 +1,101 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+df = pd.read_csv("your_file.csv")
+
+month_map = {
+    "January": 1, "February": 2, "March": 3, "April": 4,
+    "May": 5, "June": 6, "July": 7, "August": 8,
+    "September": 9, "October": 10, "November": 11, "December": 12
+}
+
+df["Month"] = df["Month"].map(month_map)
+df['Date'] = pd.to_datetime(df[['Year', 'Month', 'Day']])
+df.sort_values("Date", inplace=True)
+
+df.dropna(subset=['Date', 'Category', 'Metric', 'Value'], inplace=True)
+df['Category'] = df['Category'].astype(str)
+df['Metric'] = df['Metric'].astype(str)
+df['Value'] = pd.to_numeric(df['Value'], errors='coerce').fillna(0)
+
+df_pivot = df.pivot_table(index=['Date', 'Metric', 'Category'], values='Value', aggfunc='sum').fillna(0)
+df_pivot.reset_index(inplace=True)
+
+date_range = pd.date_range(start=df["Date"].min(), end=df["Date"].max(), freq='D')
+categories = ["A", "B", "C", "D"]  # Thứ tự danh mục cố định
+
+saturdays = [i for i, d in enumerate(date_range) if d.weekday() == 5]
+
+actual_colors = {"A": "#CEA28E", "B": "#A2E1CB", "C": "#DBCCF7", "D": "#118DFF"}
+plan_colors = {cat: sns.desaturate(actual_colors[cat], 0.4) for cat in actual_colors}
+
+fig, ax = plt.subplots(figsize=(20, 10), facecolor='white')
+x = np.arange(len(date_range))
+bar_width = 0.4
+
+total_plan = np.zeros(len(date_range))
+total_actual = np.zeros(len(date_range))
+
+for idx, metric in enumerate(["Plan", "Actual"]):
+    bottom_values = np.zeros(len(date_range))
+    for cat in categories:
+        cat_data = df_pivot[(df_pivot["Metric"] == metric) & (df_pivot["Category"] == cat)]
+        cat_values = cat_data.set_index("Date").reindex(date_range, fill_value=0)["Value"].values
+        offset = 0.001
+
+        bars = ax.bar(x + (idx - 0.5) * bar_width + (offset if metric == "Actual" else -offset), 
+                      cat_values, bottom=bottom_values,
+                      color=(plan_colors if metric == "Plan" else actual_colors)[cat], 
+                      width=bar_width * 0.9, alpha=0.9)
+
+        for j, bar in enumerate(bars):
+            height = bar.get_height()
+            if height > 0:
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_y() + height/2, f'{int(height)}', 
+                        ha='center', va='center', fontsize=14, color='black')
+                
+                if metric == "Actual":
+                    plan_value = df_pivot[(df_pivot["Metric"] == "Plan") & (df_pivot["Category"] == cat) & (df_pivot["Date"] == date_range[j])]["Value"].sum()
+                    diff = int(height - plan_value)
+                    if diff != 0:
+                        color = 'green' if diff > 0 else 'red'
+                        ax.text(bar.get_x() + bar.get_width()/2+0.15, bar.get_y() + height - height / 2+7, f'{diff:+d}',
+                                ha='center', va='bottom', fontsize=13, color=color)
+        
+        bottom_values += cat_values
+    
+    if metric == "Plan":
+        total_plan = bottom_values.copy()
+    else:
+        total_actual = bottom_values.copy()
+        
+    for i, total in enumerate(bottom_values):
+        if total > 0:
+            ax.text(x[i] + (idx - 0.5) * bar_width, total + 7, f'{int(total)}', 
+                    ha='center', fontsize=14, fontweight='bold', color='black')
+
+for i in range(len(date_range)):
+    if total_actual[i] == 0:
+        continue
+    diff = int(total_actual[i] - total_plan[i])
+    if diff != 0:
+        color = 'green' if diff > 0 else 'red'
+        ax.text(x[i] + 0.35, total_actual[i] + 10, f'{diff:+d}',
+                ha='left', va='bottom', fontsize=13, color=color, fontweight='bold')
+
+for idx in saturdays:
+    ax.text(idx, 0, "Sat", ha='center', va='bottom', fontsize=20, color='#118DFF')
+
+ax.set_yticks(np.arange(0, 501, 100))
+handles = [plt.Rectangle((0,0),1,1, color=plan_colors[cat]) for cat in categories]
+ax.legend(handles, categories, loc='upper center', bbox_to_anchor=(0.5, 1.15), frameon=False, fontsize=18, ncol=len(categories))
+
+ax.set_xlabel("Date", fontsize=12, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels([date.strftime('%d/%m') for date in date_range], rotation=0, fontsize=16)
+ax.set_ylim(0, 500)
+plt.grid(axis="y", linestyle="--", alpha=0.7)
+plt.tight_layout()
+plt.show()
