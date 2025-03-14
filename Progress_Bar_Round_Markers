@@ -1,0 +1,30 @@
+SVG_ProgressBar = 
+VAR ValuePercent = [Progress] * 100
+VAR BarWidth = 250  
+VAR BarHeight = 25  
+VAR FillWidth = INT((ValuePercent / 100) * BarWidth)  
+VAR FillColor = "#70bbff"  
+VAR BgColor = "#E0E0E0"  
+VAR TextColor = "black"  
+VAR CircleX = MAX(10, FillWidth) + 3  
+VAR CircleY = BarHeight / 1.2 
+VAR CircleRadius = 12  
+VAR CircleColor = "#FFFFFF" 
+VAR StrokeColor = FillColor  
+VAR TextX = MIN(BarWidth + 10, FillWidth + 27) 
+
+VAR SVG_Start = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='45' viewBox='0 0 350 45' preserveAspectRatio='none'>"
+
+VAR SVG_Bar = 
+    "<rect fill='" & BgColor & "' x='5' y='10' rx='8' ry='8' width='" & FORMAT(BarWidth, "0") & "' height='" & FORMAT(BarHeight, "0") & "' />
+     <rect fill='" & FillColor & "' x='5' y='10' rx='8' ry='8' width='" & FORMAT(FillWidth, "0") & "' height='" & FORMAT(BarHeight, "0") & "' />"
+
+VAR SVG_Text = 
+    "<text font-family='Segoe UI Light' font-size='20' font-weight='bold' fill='" & TextColor & "' x='" & FORMAT(TextX, "0") & "' y='28'>" & FORMAT(ValuePercent, "0") & "%</text>"
+
+VAR SVG_Circle = 
+    "<circle stroke='" & StrokeColor & "' stroke-width='3' fill='" & CircleColor & "' cx='" & FORMAT(CircleX, "0") & "' cy='" & FORMAT(CircleY, "0") & "' r='" & FORMAT(CircleRadius, "0") & "' />"
+
+VAR SVG_End = "</svg>"
+
+RETURN IF(ISBLANK(ValuePercent), "", SVG_Start & SVG_Bar & SVG_Text & SVG_Circle & SVG_End)
